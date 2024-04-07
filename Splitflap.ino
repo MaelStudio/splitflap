@@ -1,13 +1,18 @@
 #include <Stepper.h>
 
-const int stepsPerRevolution = 2038;
-Stepper myStepper = Stepper(stepsPerRevolution, 8, 10, 9, 11);
+#define REV_STEPS -2038
+
+Stepper newStepper(byte in1, byte in2, byte in3, byte in4) {
+  return Stepper(abs(REV_STEPS), in1, in3, in2, in4);
+}
+
+Stepper myStepper = newStepper(10, 11, 12, 13);
 
 void setup() {
-  myStepper.setSpeed(15);
+  myStepper.setSpeed(10);
 }
 
 void loop() {
-	myStepper.step(-1450);
-	delay(1000);
+	myStepper.step(REV_STEPS);
+	delay(500);
 }
