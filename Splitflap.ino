@@ -4,12 +4,13 @@ class Module {
     Module(int mtrPins[4], int hallPin) {
 
       // CONSTANTS
-      int flaps_count = 40;
-      int stepsPerRev = 2048;
-      int stepsPerFlap = stepsPerRev/flaps_count;
+      flaps_count = 40;
+      stepsPerRev = 2048;
+      stepsPerFlap = stepsPerRev/flaps_count;
 
       // VARS
-      int stepIdx = 0;
+      stepIdx = 0;
+      displayedIdx = 0;
 
       // PINS
       sensorPin = hallPin;
@@ -29,34 +30,37 @@ class Module {
       pinMode(sensorPin, INPUT_PULLUP);
     }
 
-    void step(int n) {
-      
-      // write correct sequence to step the motor
-      for (int i=0; i<n; i++) {
-        // write each bit to each input
-        for (int in=0; in<4; in++) {
-          digitalWrite(motorPins[in], stepSequence[stepIdx][in]);
-        }
-
-        // next in sequence
-        stepIdx++;
-        if (stepIdx == 4) {
-          stepIdx = 0;
-        }
-      }
-    }
-
     void home() {
       while (!digitalRead(sensorPin)) {
         step(1);
-        delay(2);
       }
       while (digitalRead(sensorPin)) {
         step(1);
-        delay(2);
       }
 
+      displayedIdx = 0;
       displayed = chars[0];
+    }
+
+    void display(char c) {
+
+      c = toupper(c);
+
+      targetIdx = findCharIdx(c);
+      if (targetIdx < displayedIdx) home(); // loop back to home if target character is behind currently displayed
+      
+      step(stepsPerFlap * (targetIdx - displayedIdx)); // rotate to target character
+      
+      // update status vars
+      displayedIdx = findCharIdx(c);
+      displayed = c;
+    }
+
+    void displayStr(const char* str, unsigned long interval) {
+      for (int i = 0; str[i] != '\0'; i++) {
+        display(str[i]);
+        delay(interval);
+      }
     }
 
   private:
@@ -66,66 +70,55 @@ class Module {
     int stepsPerRev;
     int stepsPerFlap;
     int stepIdx;
+    int displayedIdx;
+    int targetIdx;
     bool stepSequence[4][4] = {
         {1,0,0,1},
         {0,1,0,1},
         {0,1,1,0},
         {1,0,1,0}
     };
-    char chars[40] = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', ';', '$'};
+    char chars[40] = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', ':', '$'};
     char displayed = chars[0];
+
+    void step(int n) {
+      for (int i=0; i<n; i++) {
+        // write correct sequence to step the motor
+        for (int in=0; in<4; in++) {
+          digitalWrite(motorPins[in], stepSequence[stepIdx][in]);
+        }
+
+        // next in sequence
+        stepIdx++;
+        if (stepIdx == 4) {
+          stepIdx = 0;
+        }
+        
+        delay(2);
+
+      }
+    }
+
+    int findCharIdx(char c) {
+      for (int i = 0; i < flaps_count; i++) if (chars[i] == c) return i;
+      return -1;
+    }
+
 };
+
+
+
+int motorPins[4] = {9, 10, 11, 12};
+Module firstModule(motorPins, 8);
 
 void setup()
 {
   Serial.begin(9600);
-  int motorPins[4] = {9, 10, 11, 12};
-  Module firstModule(motorPins, 8);
-
   firstModule.home();
+  delay(1000);
 }
 
 void loop()
 {
-
+  firstModule.displayStr("0123456789", 500);
 }
-
-
-
-// int findCharIdx(char c) {
-//   for (int i = 0; i < FLAPS_COUNT; i++) if (chars[i] == c) return i;
-//   return -1;
-// }
-
-// void displayChar(Stepper motor, char c) {
-
-//   c = toupper(c);
-
-//   int currentIdx = findCharIdx(display);
-//   int destinationIdx = findCharIdx(c);
-
-//   // loop back to start if destination character is behind
-//   if (destinationIdx < currentIdx)
-//   {
-//     while (!digitalRead(hallPin))
-//     {
-//       motor.step(-1);
-//     }
-//     while (digitalRead(hallPin))
-//     {
-//       motor.step(-1);
-//     }
-//     currentIdx = 0;
-//   }
-
-//   // rotate to destination character
-//   motor.step(STEP*(destinationIdx-currentIdx));
-//   display = c;
-// }
-
-// void displayString(const char* str, unsigned long delayTime) {
-//   for (int i = 0; str[i] != '\0'; i++) {
-//     displayChar(myStepper, str[i]);
-//     delay(delayTime);
-//   }
-// }
