@@ -1,7 +1,7 @@
 class Module {
   public:
     // module constructor
-    Module(int mtrPins[4], int hallPin) {
+    Module() {
 
       // CONSTANTS
       flaps_count = 40;
@@ -11,32 +11,26 @@ class Module {
       // VARS
       stepIdx = 0;
       displayedIdx = 0;
+    }
 
-      // PINS
-      sensorPin = hallPin;
-
+    void setup(int hallPin, int in1, int in2, int in3, int in4) {
+      
       // rearrange stepper pins in order IN1-IN3-IN2-IN4
-      int order[4] = {0, 2, 1, 3};
-      for (int i=0; i<4; i++) {
-        motorPins[order[i]] = mtrPins[i];
-      }
+      motorPins[0] = in1;
+      motorPins[1] = in3;
+      motorPins[2] = in2;
+      motorPins[3] = in4;
 
       // set all stepper pins as outputs
-      for (int i=0; i<4; i++) {
-        pinMode(motorPins[i], OUTPUT);
-      }
+      for (int i=0; i<4; i++) pinMode(motorPins[i], OUTPUT);
 
-      // set hall effect sensor pin as an input with pullup resistor
-      pinMode(sensorPin, INPUT_PULLUP);
+      sensorPin = hallPin;
+      pinMode(sensorPin, INPUT_PULLUP); // set hall effect sensor pin as an input with pullup resistor
     }
 
     void home() {
-      while (!digitalRead(sensorPin)) {
-        step(1);
-      }
-      while (digitalRead(sensorPin)) {
-        step(1);
-      }
+      while (!digitalRead(sensorPin)) step(1);
+      while (digitalRead(sensorPin)) step(1);
 
       displayedIdx = 0;
       displayed = chars[0];
@@ -84,9 +78,7 @@ class Module {
     void step(int n) {
       for (int i=0; i<n; i++) {
         // write correct sequence to step the motor
-        for (int in=0; in<4; in++) {
-          digitalWrite(motorPins[in], stepSequence[stepIdx][in]);
-        }
+        for (int in=0; in<4; in++) digitalWrite(motorPins[in], stepSequence[stepIdx][in]);
 
         // next in sequence
         stepIdx++;
@@ -107,18 +99,25 @@ class Module {
 };
 
 
+Module modules[2];
 
-int motorPins[4] = {9, 10, 11, 12};
-Module firstModule(motorPins, 8);
 
 void setup()
 {
   Serial.begin(9600);
-  firstModule.home();
+  
+  int pins[2][5] = {
+    {8,  9, 10, 11, 12},
+    {3,  4,  5,  6,  7}
+  };
+
+  for (int i=0; i<2; i++) modules[i].setup(pins[0], pins[1], pins[2], pins[3], pins[4]);
+  for (int i=0; i<2; i++) modules[i].home();
+
   delay(1000);
 }
 
 void loop()
 {
-  firstModule.displayStr("0123456789", 500);
+  modules[0].displayStr("0123456789", 500);
 }
