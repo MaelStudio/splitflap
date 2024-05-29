@@ -1,5 +1,9 @@
 class Module {
   public:
+  
+    // public vars
+    char displayed;
+
     // module constructor
     Module() {
 
@@ -29,11 +33,12 @@ class Module {
     }
 
     void home() {
-      while (!digitalRead(sensorPin)) step(1);
-      while (digitalRead(sensorPin)) step(1);
+      homing = true;
+      // while (!digitalRead(sensorPin)) step(1);
+      // while (digitalRead(sensorPin)) step(1);
 
-      displayedIdx = 0;
-      displayed = chars[0];
+      // displayedIdx = 0;
+      // displayed = chars[0];
     }
 
     void display(char c) {
@@ -66,6 +71,7 @@ class Module {
     int stepIdx;
     int displayedIdx;
     int targetIdx;
+    bool homing;
     bool stepSequence[4][4] = {
         {1,0,0,1},
         {0,1,0,1},
@@ -73,7 +79,6 @@ class Module {
         {1,0,1,0}
     };
     char chars[40] = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', ':', '$'};
-    char displayed = chars[0];
 
     void step(int n) {
       for (int i=0; i<n; i++) {
@@ -100,7 +105,6 @@ class Module {
 
 
 Module modules[2];
-
 
 void setup()
 {
