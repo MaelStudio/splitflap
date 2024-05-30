@@ -38,7 +38,7 @@ public:
 
     if (homing) {
       // try to step and check if home position is reached
-      if (step() && digitalRead(sensorPin)) {
+      if (step() && !digitalRead(sensorPin)) {
         homing = false;
         displayed = chars[0];
       }
