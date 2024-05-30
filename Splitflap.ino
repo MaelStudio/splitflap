@@ -130,7 +130,9 @@ void setup() {
   for (int i = 0; i < 2; i++) modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4]);
   for (int i = 0; i < 2; i++) modules[i].home();
 
-  delay(1000);
+  while ( ! (modules[0].displayed == ' ' && modules[1].displayed == ' ')) {
+    for (int i = 0; i < 2; i++) modules[i].tick();
+  }
 }
 
 void loop() {
