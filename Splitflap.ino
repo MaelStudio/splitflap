@@ -32,8 +32,13 @@ class Module {
       pinMode(sensorPin, INPUT_PULLUP); // set hall effect sensor pin as an input with pullup resistor
     }
 
+    void tick() {
+
+    }
+
     void home() {
       homing = true;
+
       // while (!digitalRead(sensorPin)) step(1);
       // while (digitalRead(sensorPin)) step(1);
 
@@ -115,7 +120,7 @@ void setup()
     {3,  4,  5,  6,  7}
   };
 
-  for (int i=0; i<2; i++) modules[i].setup(pins[0], pins[1], pins[2], pins[3], pins[4]);
+  for (int i=0; i<2; i++) modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4]);
   for (int i=0; i<2; i++) modules[i].home();
 
   delay(1000);
