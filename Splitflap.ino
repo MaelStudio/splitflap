@@ -8,13 +8,13 @@ public:
   Module() {
 
     // CONSTANTS
-    flaps_count = 40;
-    stepsPerRev = 2048;
-    stepsPerFlap = stepsPerRev / flaps_count;
+    flaps_count = 40; // how many flaps in module
+    stepsPerRev = 2048; // how many steps per motor full revolution
+    stepsPerFlap = stepsPerRev / flaps_count; // steps required to rotate one character forward
+    stepInterval = 2000; // time interval between each motor step in microseconds
 
     // VARS
     stepIdx = 0;
-    displayedIdx = 0;
     toStep = 0;
     lastStepTime = 0;
   }
@@ -37,22 +37,17 @@ public:
   void tick() {
 
     if (homing) {
-      if (step() and digitalRead(sensorPin)) {
+      // try to step and check if home position is reached
+      if (step() && digitalRead(sensorPin)) {
         homing = false;
-        displayedIdx = 0;
         displayed = chars[0];
       }
+      return; // finish homing before rotating to target character
     }
 
+    // step until target character has been reached
     if (toStep > 0) {
       if (step()) toStep--;
-      
-      // check if target character has been reached
-      if (toStep == 0) {
-        // update status vars
-        displayedIdx = findCharIdx(c);
-        displayed = c;
-      }
     }
   }
 
@@ -64,6 +59,7 @@ public:
 
     c = toupper(c);
     int targetIdx = findCharIdx(c);
+    int displayedIdx = findCharIdx(displayed);
 
     // loop back to home if target character is behind currently displayed
     if (targetIdx < displayedIdx) {
@@ -73,13 +69,7 @@ public:
       toStep = stepsPerFlap * (targetIdx - displayedIdx); // rotate to target character
     }
 
-  }
-
-  void displayStr(const char* str, unsigned long interval) {
-    for (int i = 0; str[i] != '\0'; i++) {
-      display(str[i]);
-      delay(interval);
-    }
+    displayed = c;
   }
 
 private:
@@ -88,11 +78,11 @@ private:
   int flaps_count;
   int stepsPerRev;
   int stepsPerFlap;
+  int stepInterval;
   int stepIdx;
-  int displayedIdx;
-  int stepsLeft;
-  bool homing;
+  int toStep;
   unsigned long lastStepTime;
+  bool homing;
   bool stepSequence[4][4] = {
     { 1, 0, 0, 1 },
     { 0, 1, 0, 1 },
@@ -102,7 +92,7 @@ private:
   char chars[40] = { ' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', ':', '$' };
 
   bool step() {
-    unsigned long now = mircos();
+    unsigned long now = micros();
     if (now - lastStepTime < 2000) return false;
   
     // write correct sequence to step the motor
@@ -123,6 +113,7 @@ private:
       if (chars[i] == c) return i;
     return -1;
   }
+
 };
 
 
