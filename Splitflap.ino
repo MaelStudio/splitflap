@@ -123,8 +123,8 @@ void setup() {
   Serial.begin(9600);
 
   int pins[2][5] = {
-    { 8, 9, 10, 11, 12 },
-    { 3, 4,  5,   6, 7 }
+    {8, 9, 10, 11, 12},
+    {3, 4,  5,  6, 7 }
   };
 
   for (int i = 0; i < 2; i++) modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4]);
