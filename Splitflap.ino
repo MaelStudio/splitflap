@@ -109,8 +109,7 @@ private:
   }
 
   int findCharIdx(char c) {
-    for (int i = 0; i < flaps_count; i++)
-      if (chars[i] == c) return i;
+    for (int i = 0; i < flaps_count; i++) if (chars[i] == c) return i;
     return -1;
   }
 
@@ -133,6 +132,10 @@ void setup() {
   while ( ! (modules[0].displayed == ' ' && modules[1].displayed == ' ')) {
     for (int i = 0; i < 2; i++) modules[i].tick();
   }
+
+  delay(2000);
+
+  for (int i = 0; i < 2; i++) modules[i].display('1');
 }
 
 void loop() {
