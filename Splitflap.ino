@@ -53,9 +53,7 @@ public:
     }
 
     // step until target character has been reached
-    if (toStep > 0) {
-      if (step()) toStep--;
-    }
+    if (toStep > 0 && step()) toStep--;
   }
 
   void home() {
