@@ -12,7 +12,7 @@ public:
     flaps_count = 40; // how many flaps in module
     stepsPerRev = 2048; // how many steps per motor full revolution
     stepsPerFlap = stepsPerRev / flaps_count; // steps required to rotate one character forward
-    stepInterval = 2000; // time interval between each motor step in microseconds
+    stepInterval = 0; // time interval between each motor step in microseconds
 
     // VARS
     stepIdx = 0;
