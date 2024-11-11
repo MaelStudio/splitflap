@@ -2,6 +2,7 @@ class Module {
 public:
 
   // public vars
+  bool homing;
   char displayed;
 
   // module constructor
@@ -36,11 +37,17 @@ public:
 
   void tick() {
 
+    if (resetting) {
+      if (step() && !isOnMagnet()) {
+        resetting = false;
+      }
+      return;
+    }
+
     if (homing) {
       // try to step and check if home position is reached
-      if (step() && !digitalRead(sensorPin)) {
+      if (step() && isOnMagnet()) {
         homing = false;
-        displayed = chars[0];
       }
       return; // finish homing before rotating to target character
     }
@@ -55,6 +62,12 @@ public:
     homing = true;
   }
 
+  void reset() {
+    resetting = true;
+    home();
+    displayed = chars[0];
+  }
+
   void display(char c) {
 
     c = toupper(c);
@@ -64,9 +77,9 @@ public:
     // loop back to home if target character is behind currently displayed
     if (targetIdx < displayedIdx) {
       home();
-      toStep = stepsPerFlap * targetIdx; // rotate to target character
+      toStep += stepsPerFlap * targetIdx; // rotate to target character
     } else {
-      toStep = stepsPerFlap * (targetIdx - displayedIdx); // rotate to target character
+      toStep += stepsPerFlap * (targetIdx - displayedIdx); // rotate to target character
     }
 
     displayed = c;
@@ -82,7 +95,7 @@ private:
   int stepIdx;
   int toStep;
   unsigned long lastStepTime;
-  bool homing;
+  bool resetting;
   bool stepSequence[4][4] = {
     { 1, 0, 0, 1 },
     { 0, 1, 0, 1 },
@@ -108,6 +121,10 @@ private:
     return true;
   }
 
+  bool isOnMagnet() {
+    return !digitalRead(sensorPin);
+  }
+
   int findCharIdx(char c) {
     for (int i = 0; i < flaps_count; i++) if (chars[i] == c) return i;
     return -1;
@@ -115,29 +132,89 @@ private:
 
 };
 
+class Display {
+public:
+  int size;
 
-Module modules[2];
+  Display(int size) : size(size) {
+    modules = new Module[size];
+  }
+
+  void setup(int pins[][5]) {
+    for (int i = 0; i < size; i++) {
+      modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4]);
+      modules[i].reset();
+    }
+
+    // Wait until all modules are reset to the home position
+    while (!allModulesAtHome()) {
+      tick();
+    }
+  }
+
+  void write(const char *message) {
+    for (int i = 0; i < size; i++) {
+      if (i < strlen(message)) {
+        modules[i].display(message[i]);
+      } else {
+        modules[i].display(' ');  // Fill remaining modules with blank spaces
+      }
+    }
+  }
+
+  void tick() {
+    for (int i = 0; i < size; i++) {
+      modules[i].tick();
+    }
+  }
+
+private:
+  Module *modules;
+
+  bool allModulesAtHome() {
+    for (int i = 0; i < size; i++) {
+      if (modules[i].homing or modules[i].displayed != ' ') {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
+// Global instance of Display with two modules
+Display display(3);
 
 void setup() {
   Serial.begin(9600);
 
-  int pins[2][5] = {
+  int pins[3][5] = {
+    {3, 4, 5, 6, 7},
     {8, 9, 10, 11, 12},
-    {3, 4,  5,  6, 7 }
+    {13, 14, 15, 16, 17}
   };
 
-  for (int i = 0; i < 2; i++) modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4]);
-  for (int i = 0; i < 2; i++) modules[i].home();
+  Serial.println("Setting up modules...");
+  display.setup(pins);
 
-  while ( ! (modules[0].displayed == ' ' && modules[1].displayed == ' ')) {
-    for (int i = 0; i < 2; i++) modules[i].tick();
-  }
-
-  delay(2000);
-
-  for (int i = 0; i < 2; i++) modules[i].display('1');
+  Serial.println("Done! Type messages to display them!");
 }
 
 void loop() {
-  for (int i = 0; i < 2; i++) modules[i].tick();
+  // Check if there's any serial input available
+  if (Serial.available() > 0) {
+    // Read the input string
+    String input = Serial.readStringUntil('\n');
+    
+    // Ensure the input string length matches the number of modules
+    if (input.length() > display.size) {
+      Serial.println("Error: Message is too long for display.");
+      return;
+    }
+
+    // Display the message
+    display.write(input.c_str());
+  }
+
+  // Continuously update the display
+  display.tick();
 }
