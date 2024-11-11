@@ -187,10 +187,10 @@ Display display(3);
 void setup() {
   Serial.begin(9600);
 
-  int pins[3][5] = {
+  int pins[display.size][5] = {
     {3, 4, 5, 6, 7},
     {8, 9, 10, 11, 12},
-    {13, 14, 15, 16, 17}
+    {22, 24, 26, 28, 30}
   };
 
   Serial.println("Setting up modules...");
