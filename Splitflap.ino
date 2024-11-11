@@ -75,9 +75,9 @@ public:
     // loop back to home if target character is behind currently displayed
     if (targetIdx < displayedIdx) {
       home();
-      toStep += stepsPerFlap * targetIdx; // rotate to target character
+      toStep = stepsPerFlap * targetIdx; // rotate to target character
     } else {
-      toStep += stepsPerFlap * (targetIdx - displayedIdx); // rotate to target character
+      toStep = stepsPerFlap * (targetIdx - displayedIdx); // rotate to target character
     }
 
     displayed = c;
