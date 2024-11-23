@@ -1,18 +1,18 @@
 class Module {
 public:
 
-  // public vars
+  // Public vars
   bool homing;
   char displayed;
 
-  // module constructor
+  // Module constructor
   Module() {
 
     // CONSTANTS
-    flapsCount = 40; // how many flaps in module
-    stepsPerRev = 2048; // how many steps per motor full revolution
-    stepsPerFlap = stepsPerRev / flapsCount; // steps required to rotate one character forward
-    stepInterval = 1700; // time interval between each motor step in microseconds
+    flapsCount = 40; // Flaps in module
+    stepsPerRev = 2048; // Steps per motor full revolution
+    stepsPerFlap = stepsPerRev / flapsCount; // Steps required to rotate one character forward
+    stepInterval = 1800; // Time interval between each motor step in microseconds
 
     // VARS
     stepSequenceIdx = 0;
@@ -27,22 +27,22 @@ public:
 
     offset = off;
 
-    // rearrange stepper pins in order IN1-IN3-IN2-IN4
+    // Rearrange stepper pins in order IN1-IN3-IN2-IN4
     motorPins[0] = in1;
     motorPins[1] = in3;
     motorPins[2] = in2;
     motorPins[3] = in4;
 
-    // set all stepper pins as outputs
+    // Set all stepper pins as outputs
     for (int i = 0; i < 4; i++) pinMode(motorPins[i], OUTPUT);
 
     sensorPin = hallPin;
-    pinMode(sensorPin, INPUT_PULLUP);  // set hall effect sensor pin as an input with pullup resistor
+    pinMode(sensorPin, INPUT_PULLUP);  // Set hall effect sensor pin as an input with pullup resistor
   }
 
   void tick() {
 
-    // reset before homing
+    // Reset before homing
     if (resetting) {
       if (step() && !isOnMagnet()) {
         resetting = false;
@@ -51,17 +51,17 @@ public:
     }
 
     if (homing) {
-      // try to step and check if home position is reached
+      // Try to step and check if home position is reached
       if (step() && isOnMagnet()) {
         displayedIdx = 0;
         displayed = chars[0];
         flapStepIdx = 0;
         homing = false;
       }
-      return; // finish homing before rotating to target character
+      return; // Finish homing before rotating to target character
     }
 
-    // step until target character has been reached
+    // Step until target character has been reached
     if (moving && step() && displayedIdx == targetIdx) {
       offsetSteps = offset;
       moving = false;
@@ -82,7 +82,7 @@ public:
     c = toupper(c);
     targetIdx = findCharIdx(c);
 
-    // loop back to home if target character is behind currently displayed
+    // Loop back to home if target character is behind currently displayed
     if (targetIdx < displayedIdx) {
       home();
     }
@@ -120,10 +120,10 @@ private:
     unsigned long now = micros();
     if (now - lastStepTime < stepInterval) return false;
   
-    // write correct sequence to step the motor
+    // Write correct sequence to step the motor
     for (int in = 0; in < 4; in++) digitalWrite(motorPins[in], stepSequence[stepSequenceIdx][in]);
 
-    // next in sequence
+    // Next in sequence
     stepSequenceIdx++;
     if (stepSequenceIdx == 4) {
       stepSequenceIdx = 0;
