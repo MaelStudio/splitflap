@@ -208,15 +208,19 @@ private:
   }
 };
 
-// Global instance of Display with two modules
-Display display(3);
+// Display with 6 modules
+Display display(6);
 
 void setup() {
   Serial.begin(9600);
 
+  // Module pins and offsets
   int pins[display.size][6] = {
+    {42, 44, 46, 48, 50, 0},
+    {32, 34, 36, 38, 40, 0},
+    {A3, A4, A5, A6, A7, 0},
     {3, 4, 5, 6, 7, 0},
-    {8, 9, 10, 11, 12, 20},
+    {9, 10, 11, 12, 13, 0},
     {22, 24, 26, 28, 30, 0}
   };
 
