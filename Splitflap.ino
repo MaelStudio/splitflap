@@ -2,6 +2,7 @@ class Module {
 public:
 
   // Public vars
+  int motorPins[4];
   bool homing;
   char displayed;
 
@@ -93,7 +94,6 @@ public:
   }
 
 private:
-  int motorPins[4];
   int sensorPin;
   int flapsCount;
   int stepsPerRev;
@@ -172,11 +172,6 @@ public:
       modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4], pins[i][5]);
       modules[i].reset();
     }
-
-    // Wait until all modules are reset to the home position
-    while (!allModulesAtHome()) {
-      tick();
-    }
   }
 
   void write(const char *message) {
@@ -194,6 +189,31 @@ public:
       modules[i].tick();
     }
   }
+
+  void calibrate() {
+    for (int i = 0; i < size; i++) {
+      modules[i].reset();
+    }
+
+    // Wait until all modules are reset to the home position
+    while (!allModulesAtHome()) {
+      tick();
+    }
+  }
+
+  // Power each motor pin 1 by 1
+  void debugPins() {
+    for (int i = 0; i < size; i++) {
+      digitalWrite(modules[i].motorPins[0], HIGH); // in1
+      delay(150);
+      digitalWrite(modules[i].motorPins[2], HIGH); // in2
+      delay(150);
+      digitalWrite(modules[i].motorPins[1], HIGH); // in3
+      delay(150);
+      digitalWrite(modules[i].motorPins[3], HIGH); // in4
+      delay(150);
+    }
+}
 
 private:
   Module *modules;
@@ -224,8 +244,10 @@ void setup() {
     {22, 24, 26, 28, 30, 0}
   };
 
-  Serial.println("Setting up modules...");
+  Serial.println("Calibrating modules...");
+
   display.setup(pins);
+  display.calibrate();
 
   Serial.println("Done! Type messages to display them!");
 }
@@ -233,17 +255,13 @@ void setup() {
 void loop() {
   // Check if there's any serial input available
   if (Serial.available() > 0) {
-    // Read the input string
     String input = Serial.readStringUntil('\n');
     
-    // Ensure the input string length matches the number of modules
     if (input.length() > display.size) {
       Serial.println("Error: Message is too long for display.");
-      return;
+    } else {
+      display.write(input.c_str()); // Display the message
     }
-
-    // Display the message
-    display.write(input.c_str());
   }
 
   // Continuously update the display
