@@ -167,9 +167,9 @@ public:
     modules = new Module[size];
   }
 
-  void setup(int pins[][6]) {
+  void setup(int pins[][5], int offsets[]) {
     for (int i = 0; i < size; i++) {
-      modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4], pins[i][5]);
+      modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4], offsets[i]);
       modules[i].reset();
     }
   }
@@ -234,19 +234,22 @@ Display display(6);
 void setup() {
   Serial.begin(9600);
 
-  // Module pins and offsets
-  int pins[display.size][6] = {
-    {42, 44, 46, 48, 50, 0},
-    {32, 34, 36, 38, 40, 0},
-    {A3, A4, A5, A6, A7, 0},
-    {3, 4, 5, 6, 7, 0},
-    {9, 10, 11, 12, 13, 0},
-    {22, 24, 26, 28, 30, 0}
+  // Module pins
+  // sensor, in1, in2, in3, in4
+  int pins[display.size][5] = {
+    {42, 44, 46, 48, 50},
+    {32, 34, 36, 38, 40},
+    {A3, A4, A5, A6, A7},
+    {3, 4, 5, 6, 7},
+    {9, 10, 11, 12, 13},
+    {22, 24, 26, 28, 30}
   };
+
+  int offsets[display.size]= {0, 0, 0, 20, 10, 10};
 
   Serial.println("Calibrating modules...");
 
-  display.setup(pins);
+  display.setup(pins, offsets);
   display.calibrate();
 
   Serial.println("Done! Type messages to display them!");
