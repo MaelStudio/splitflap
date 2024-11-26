@@ -43,15 +43,14 @@ public:
 
   void tick() {
 
-    // Reset before homing
-    if (resetting) {
-      if (step() && !isOnMagnet()) {
-        resetting = false;
-      }
-      return;
-    }
-
     if (homing) {
+      // If module is already on magnet before homing, rotate until not on magnet
+      if (preHoming) {
+        if (step() && !isOnMagnet()) {
+          preHoming = false;
+        }
+        return;
+      }
       // Try to step and check if home position is reached
       if (step() && isOnMagnet()) {
         displayedIdx = 0;
@@ -68,14 +67,15 @@ public:
       moving = false;
     }
 
+    // Offset
     if (offsetSteps && step()) {
       offsetSteps--;
     }
   }
-
-  void reset() {
-    resetting = true;
-    home();
+  
+  void home() {
+    preHoming = true;
+    homing = true;
   }
 
   void display(char c) {
@@ -107,7 +107,7 @@ private:
   int offset;
   int offsetSteps;
   unsigned long lastStepTime;
-  bool resetting;
+  bool preHoming;
   bool stepSequence[4][4] = {
     { 1, 0, 0, 1 },
     { 0, 1, 0, 1 },
@@ -144,10 +144,6 @@ private:
     return true;
   }
 
-  void home() {
-    homing = true;
-  }
-
   bool isOnMagnet() {
     return !digitalRead(sensorPin);
   }
@@ -170,7 +166,6 @@ public:
   void setup(int pins[][5], int offsets[]) {
     for (int i = 0; i < size; i++) {
       modules[i].setup(pins[i][0], pins[i][1], pins[i][2], pins[i][3], pins[i][4], offsets[i]);
-      modules[i].reset();
     }
   }
 
@@ -192,11 +187,11 @@ public:
 
   void calibrate() {
     for (int i = 0; i < size; i++) {
-      modules[i].reset();
+      modules[i].home();
     }
 
-    // Wait until all modules are reset to the home position
-    while (!allModulesAtHome()) {
+    // Wait until all modules are homed
+    while (!calibrated()) {
       tick();
     }
   }
@@ -218,9 +213,9 @@ public:
 private:
   Module *modules;
 
-  bool allModulesAtHome() {
+  bool calibrated() {
     for (int i = 0; i < size; i++) {
-      if (modules[i].homing || modules[i].displayed != ' ') {
+      if (modules[i].homing) {
         return false;
       }
     }
