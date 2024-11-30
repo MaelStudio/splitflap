@@ -1,6 +1,12 @@
+// RTC libraries
+#include <Wire.h>
+#include <DS3231.h>
+
 #define ROTARY_CLK_PIN 2
 #define ROTARY_DATA_PIN A0
 #define ROTARY_SW_PIN A1
+
+RTClib rtc;
 
 int rotaryCtr = 0;
 
@@ -233,7 +239,10 @@ private:
 Display display(6);
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+
+  // RTC
+  Wire.begin();
 
   // Rotary encoder
   pinMode(ROTARY_CLK_PIN, INPUT);
@@ -273,6 +282,26 @@ void loop() {
     }
   }
 
+  // Display time
+  static unsigned long lastReadTime = 0;
+  unsigned long now = millis();
+
+  if (now - lastReadTime > 1000) {
+    DateTime time = rtc.now();
+
+    char timeString[7]; // Buffer to store the time string (6 digits + null terminator)
+    sprintf(timeString, "%02d:%02d ", time.hour(), time.minute());  // Format time
+    static char lastTime[7];
+
+    // Update display
+    if (strcmp(timeString, lastTime) != 0) {
+      display.write(timeString);
+      strcpy(lastTime, timeString);
+    }
+
+    lastReadTime = now;
+  }
+  
   // Continuously update the display
   display.tick();
 }
