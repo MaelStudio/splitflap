@@ -1,3 +1,9 @@
+#define ROTARY_CLK_PIN 2
+#define ROTARY_DATA_PIN A0
+#define ROTARY_SW_PIN A1
+
+int rotaryCtr = 0;
+
 class Module {
 public:
 
@@ -229,6 +235,12 @@ Display display(6);
 void setup() {
   Serial.begin(9600);
 
+  // Rotary encoder
+  pinMode(ROTARY_CLK_PIN, INPUT);
+  pinMode(ROTARY_DATA_PIN, INPUT);
+  pinMode(ROTARY_SW_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(ROTARY_CLK_PIN), rotaryEncoderISR, CHANGE);
+
   // Module pins
   // sensor, in1, in2, in3, in4
   int pins[display.size][5] = {
@@ -242,11 +254,10 @@ void setup() {
 
   int offsets[display.size]= {0, 0, 0, 20, 10, 10};
 
-  Serial.println("Calibrating modules...");
-
   display.setup(pins, offsets);
-  display.calibrate();
 
+  Serial.println("Calibrating modules...");
+  display.calibrate();
   Serial.println("Done! Type messages to display them!");
 }
 
@@ -264,4 +275,32 @@ void loop() {
 
   // Continuously update the display
   display.tick();
+}
+
+void rotaryEncoderISR() {
+  static unsigned long lastISRTime = 0;
+  unsigned long now = millis();
+
+  // prevent bounce
+  if(now - lastISRTime < 30) {
+    return;
+  }
+
+  if (digitalRead(ROTARY_CLK_PIN) == digitalRead(ROTARY_DATA_PIN)) {
+    // CCW
+    rotaryCtr--;
+  } else {
+    // CW
+    rotaryCtr++;
+  }
+
+  Serial.println(rotaryCtr);
+
+  // Update display
+  char buffer[7]; // Buffer to store the string representation of rotaryCtr (6 digits + null terminator)
+  sprintf(buffer, "%06d", rotaryCtr);  // Convert rotaryCtr to a string
+
+  display.write(buffer);
+
+  lastISRTime = now;
 }
