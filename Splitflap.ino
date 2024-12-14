@@ -63,26 +63,35 @@ public:
         }
         return;
       }
+      // Offset
+      if (offsetSteps) {
+        if (step()) {
+          offsetSteps--;
+          if (!offsetSteps) {
+            setHome(); // stop homing sequence
+            turnOffInputs();
+          }
+        }
+        return;
+      }
       // Try to step and check if home position is reached
       if (step() && isOnMagnet()) {
-        displayedIdx = 0;
-        displayed = chars[0];
-        flapStepIdx = 0;
-        homing = false;
+        if (offset) {
+          offsetSteps = offset;
+        } else {
+          setHome(); // stop homing sequence
+          turnOffInputs();
+        }
       }
       return; // Finish homing before rotating to target character
     }
 
     // Step until target character has been reached
     if (moving && step() && displayedIdx == targetIdx) {
-      offsetSteps = offset;
       moving = false;
+      turnOffInputs();
     }
-
-    // Offset
-    if (offsetSteps && step()) {
-      offsetSteps--;
-    }
+    
   }
   
   void home() {
@@ -128,6 +137,13 @@ private:
   };
   char chars[40] = { ' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', ':', '$' };
 
+  void setHome() {
+    displayedIdx = 0;
+    displayed = chars[0];
+    flapStepIdx = 0;
+    homing = false;
+  }
+
   bool step() {
     unsigned long now = micros();
     if (now - lastStepTime < stepInterval) return false;
@@ -154,6 +170,12 @@ private:
     
     lastStepTime = now;
     return true;
+  }
+
+  void turnOffInputs() {
+    for (int in = 0; in < 4; in++) {
+      digitalWrite(motorPins[in], LOW);
+    }
   }
 
   bool isOnMagnet() {
