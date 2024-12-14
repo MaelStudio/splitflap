@@ -283,7 +283,7 @@ void setup() {
     {22, 24, 26, 28, 30}
   };
 
-  int offsets[display.size]= {0, 0, 0, 20, 10, 10};
+  int offsets[display.size]= {0, 0, 0, 20, 25, 10};
 
   display.setup(pins, offsets);
 
