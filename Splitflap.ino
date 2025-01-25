@@ -260,6 +260,10 @@ private:
 // Display with 6 modules
 Display display(6);
 
+int autoSleepTime[2] = {15, 59};
+int autoWakeTime[2] = {16, 00};
+bool sleepMode = false;
+
 void setup() {
   Serial.begin(115200);
 
@@ -283,7 +287,7 @@ void setup() {
     {22, 24, 26, 28, 30}
   };
 
-  int offsets[display.size]= {0, 0, 0, 20, 25, 10};
+  int offsets[display.size]= {0, 20, 0, 20, 25, 10};
 
   display.setup(pins, offsets);
 
@@ -304,21 +308,31 @@ void loop() {
     }
   }
 
-  // Display time
+  // Get time
   static unsigned long lastReadTime = 0;
   unsigned long now = millis();
 
   if (now - lastReadTime > 1000) {
     DateTime time = rtc.now();
 
-    char timeString[7]; // Buffer to store the time string (6 digits + null terminator)
+    char timeString[7]; // Buffer to store the time string (6 chars + null terminator)
     sprintf(timeString, "%02d:%02d ", time.hour(), time.minute());  // Format time
     static char lastTime[7];
 
     // Update display
-    if (strcmp(timeString, lastTime) != 0) {
-      display.write(timeString);
-      strcpy(lastTime, timeString);
+    if (!sleepMode) {
+      if (strcmp(timeString, lastTime) != 0) {
+        display.write(timeString);
+        strcpy(lastTime, timeString);
+      }
+    }
+
+    if (!sleepMode && time.hour() == autoSleepTime[0] && time.minute() == autoSleepTime[1]) {
+      sleepMode = true;
+      display.write("SLEEP");
+    }
+    if (sleepMode && time.hour() == autoWakeTime[0] && time.minute() == autoWakeTime[1]) {
+      sleepMode = false;
     }
 
     lastReadTime = now;
