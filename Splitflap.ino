@@ -102,7 +102,7 @@ public:
   void display(char c) {
 
     c = toupper(c);
-    if (targetIdx == c) return;
+    if (targetIdx == findCharIdx(c)) return;
     targetIdx = findCharIdx(c);
 
     // Loop back to home if target character is behind currently displayed
