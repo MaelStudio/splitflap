@@ -317,7 +317,6 @@ void loop() {
       if (mode > 2) {
         mode = 0;
       }
-      Serial.println(mode);
       lastPressTime = now;
     }
   }
