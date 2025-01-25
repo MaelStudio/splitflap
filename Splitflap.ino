@@ -102,6 +102,7 @@ public:
   void display(char c) {
 
     c = toupper(c);
+    if (targetIdx == c) return;
     targetIdx = findCharIdx(c);
 
     // Loop back to home if target character is behind currently displayed
@@ -260,9 +261,15 @@ private:
 // Display with 6 modules
 Display display(6);
 
+// Modes
+int mode = 0;
+#define SERIAL -1
+#define TIME 0
+#define DATE 1
+#define SLEEP 2
+
 int autoSleepTime[2] = {15, 59};
 int autoWakeTime[2] = {16, 00};
-bool sleepMode = false;
 
 void setup() {
   Serial.begin(115200);
@@ -282,7 +289,7 @@ void setup() {
     {42, 44, 46, 48, 50},
     {32, 34, 36, 38, 40},
     {A3, A4, A5, A6, A7},
-    {3, 4, 5, 6, 7},
+    {8, 4, 5, 6, 7},
     {9, 10, 11, 12, 13},
     {22, 24, 26, 28, 30}
   };
@@ -293,53 +300,79 @@ void setup() {
 
   Serial.println("Calibrating modules...");
   display.calibrate();
-  Serial.println("Done! Type messages to display them!");
+  Serial.println("Done!");
 }
 
 void loop() {
-  // Check if there's any serial input available
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
-    
-    if (input.length() > display.size) {
-      Serial.println("Error: Message is too long for display.");
-    } else {
-      display.write(input.c_str()); // Display the message
+  unsigned long now = millis();
+
+  // Continuously update the display
+  display.tick();
+
+  // Change mode by pressing the rotary encoder switch
+  static unsigned long lastPressTime = 0;
+  if (digitalRead(ROTARY_SW_PIN) == LOW) {
+    if (now - lastPressTime > 500) {
+      mode++;
+      if (mode > 2) {
+        mode = 0;
+      }
+      Serial.println(mode);
+      lastPressTime = now;
     }
   }
 
-  // Get time
+  // Get time and date from RTC
   static unsigned long lastReadTime = 0;
-  unsigned long now = millis();
 
   if (now - lastReadTime > 1000) {
     DateTime time = rtc.now();
 
     char timeString[7]; // Buffer to store the time string (6 chars + null terminator)
-    sprintf(timeString, "%02d:%02d ", time.hour(), time.minute());  // Format time
+    sprintf(timeString, "%02d:%02d ", time.hour(), time.minute()); // Format time
     static char lastTime[7];
 
-    // Update display
-    if (!sleepMode) {
-      if (strcmp(timeString, lastTime) != 0) {
-        display.write(timeString);
-        strcpy(lastTime, timeString);
-      }
+    // TIME mode
+    if (mode == TIME) {
+      display.write(timeString);
+      strcpy(lastTime, timeString);
     }
 
-    if (!sleepMode && time.hour() == autoSleepTime[0] && time.minute() == autoSleepTime[1]) {
-      sleepMode = true;
-      display.write("SLEEP");
+    // DATE mode
+    if (mode == DATE) {
+      char dateString[7]; // Buffer to store the date string (6 chars + null terminator)
+      char months[12][4] = { "JAN", "FEV", "MAR", "AVR", "MAI", "JUN", "JUL", "AOU", "SEP", "OCT", "NOV", "DEC" };
+      sprintf(dateString, "%02d %s", time.day(), months[time.month() - 1]); // Format date
+      display.write(dateString);
     }
-    if (sleepMode && time.hour() == autoWakeTime[0] && time.minute() == autoWakeTime[1]) {
-      sleepMode = false;
+
+    // Auto sleep and wake
+    if (mode != SLEEP && time.hour() == autoSleepTime[0] && time.minute() == autoSleepTime[1]) {
+      mode = SLEEP;
+    }
+    if (mode == SLEEP && time.hour() == autoWakeTime[0] && time.minute() == autoWakeTime[1]) {
+      mode = TIME;
     }
 
     lastReadTime = now;
   }
-  
-  // Continuously update the display
-  display.tick();
+
+  // SLEEP mode
+  if (mode == SLEEP) {
+    display.write("SLEEP");
+  }
+
+  // Check if there's any serial input available
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+
+    if (input.length() > display.size) {
+      input = input.substring(0, display.size);
+    }
+    
+    display.write(input.c_str()); // Display the message
+    mode = SERIAL; // Set mode to SERIAL
+  }
 }
 
 void rotaryEncoderISR() {
@@ -360,12 +393,6 @@ void rotaryEncoderISR() {
   }
 
   Serial.println(rotaryCtr);
-
-  // Update display
-  char buffer[7]; // Buffer to store the string representation of rotaryCtr (6 digits + null terminator)
-  sprintf(buffer, "%06d", rotaryCtr);  // Convert rotaryCtr to a string
-
-  display.write(buffer);
 
   lastISRTime = now;
 }
