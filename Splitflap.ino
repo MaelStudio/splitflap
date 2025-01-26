@@ -268,8 +268,8 @@ int mode = 0;
 #define DATE 1
 #define SLEEP 2
 
-int autoSleepTime[2] = {15, 59};
-int autoWakeTime[2] = {16, 00};
+int autoSleepTime[2] = {21, 00};
+int autoWakeTime[2] = {6, 30};
 
 void setup() {
   Serial.begin(115200);
