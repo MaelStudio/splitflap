@@ -2,14 +2,6 @@
 #include <Wire.h>
 #include <DS3231.h>
 
-#define ROTARY_CLK_PIN 2
-#define ROTARY_DATA_PIN A0
-#define ROTARY_SW_PIN A1
-
-RTClib rtc;
-
-int rotaryCtr = 0;
-
 class Module {
 public:
 
@@ -258,21 +250,39 @@ private:
   }
 };
 
+
 // Display with 6 modules
 Display display(6);
 
+// RTC
+#define ROTARY_CLK_PIN 2
+#define ROTARY_DATA_PIN A0
+#define ROTARY_SW_PIN A1
+RTClib rtc;
+int rotaryCtr = 0;
+DateTime dateTime;
+
+// WiFi
+bool wifiConnected = false;
+bool receivedWeather = false;
+int temperature;
+int humidity;
+
 // Modes
 int mode = 0;
-#define SERIAL -1
+#define SERIAL_MSG -1
 #define TIME 0
 #define DATE 1
-#define SLEEP 2
+#define TEMP 2
+#define SLEEP 3
 
-int autoSleepTime[2] = {21, 00};
-int autoWakeTime[2] = {6, 30};
+// Auto sleep
+int autoSleepTime[2] = {21, 0}; // 21:00
+int autoWakeTime[2] = {6, 30}; // 6:30
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200); // Serial monitor prints
+  Serial1.begin(115200); // Communication with ESP32 for WiFi
 
   // RTC
   Wire.begin();
@@ -294,13 +304,16 @@ void setup() {
     {22, 24, 26, 28, 30}
   };
 
-  int offsets[display.size]= {0, 20, 0, 20, 25, 10};
+  int offsets[display.size] = {0, 20, 0, 10, 20, 10};
 
   display.setup(pins, offsets);
 
   Serial.println("Calibrating modules...");
   display.calibrate();
   Serial.println("Done!");
+
+  // Connect to WiFi
+  Serial1.println("CONNECT");
 }
 
 void loop() {
@@ -309,51 +322,101 @@ void loop() {
   // Continuously update the display
   display.tick();
 
+  // Check if received response from ESP32
+  if (Serial1.available() > 0) {
+    String response = Serial1.readStringUntil('\n');
+    response.trim();
+    Serial.println(response);
+
+    String* responseSplit = splitStr(response, ' ');
+    String command = responseSplit[0]; // Command to which the ESP32 responded
+
+    // CONNECT
+    if (command == "CONNECT") {
+      String ip = responseSplit[1];
+      wifiConnected = true;
+    }
+    // WEATHER
+    if (command == "WEATHER") {
+      receivedWeather = true;
+      temperature = responseSplit[1].toInt();
+      humidity = responseSplit[2].toInt();
+    }
+    delete[] responseSplit;
+  }
+
   // Change mode by pressing the rotary encoder switch
   static unsigned long lastPressTime = 0;
   if (digitalRead(ROTARY_SW_PIN) == LOW) {
-    if (now - lastPressTime > 500) {
+    if (now - lastPressTime > 300) {
       mode++;
-      if (mode > 2) {
+      if (mode > 3) {
         mode = 0;
       }
       lastPressTime = now;
     }
   }
 
-  // Get time and date from RTC
-  static unsigned long lastReadTime = 0;
-
+  // Get time and date from RTC every second
+  static unsigned long lastReadTime = now - 1000;
+  
   if (now - lastReadTime > 1000) {
-    DateTime time = rtc.now();
-
-    char timeString[7]; // Buffer to store the time string (6 chars + null terminator)
-    sprintf(timeString, "%02d:%02d ", time.hour(), time.minute()); // Format time
-    static char lastTime[7];
-
-    // TIME mode
-    if (mode == TIME) {
-      display.write(timeString);
-      strcpy(lastTime, timeString);
-    }
-
-    // DATE mode
-    if (mode == DATE) {
-      char dateString[7]; // Buffer to store the date string (6 chars + null terminator)
-      char months[12][4] = { "JAN", "FEV", "MAR", "AVR", "MAI", "JUN", "JUL", "AOU", "SEP", "OCT", "NOV", "DEC" };
-      sprintf(dateString, "%02d %s", time.day(), months[time.month() - 1]); // Format date
-      display.write(dateString);
-    }
-
-    // Auto sleep and wake
-    if (mode != SLEEP && time.hour() == autoSleepTime[0] && time.minute() == autoSleepTime[1]) {
-      mode = SLEEP;
-    }
-    if (mode == SLEEP && time.hour() == autoWakeTime[0] && time.minute() == autoWakeTime[1]) {
-      mode = TIME;
-    }
-
+    dateTime = rtc.now();
     lastReadTime = now;
+  }
+
+  // Request weather data to ESP32 every 10 minutes
+  static unsigned long lastWeatherTime = now - 1000UL*60*10;
+  
+  if (wifiConnected && now - lastWeatherTime > 1000UL*60*10) {
+    Serial1.println("WEATHER");
+    lastWeatherTime = now;
+  }
+
+  // Auto sleep and wake
+  if (mode != SLEEP && dateTime.hour() == autoSleepTime[0] && dateTime.minute() == autoSleepTime[1]) {
+    mode = SLEEP;
+  }
+  if (mode == SLEEP && dateTime.hour() == autoWakeTime[0] && dateTime.minute() == autoWakeTime[1]) {
+    mode = TIME;
+  }
+
+  // TIME mode
+  if (mode == TIME) {
+    char timeString[7]; // Buffer to store the time string (6 chars + null terminator)
+    sprintf(timeString, "%02d:%02d ", dateTime.hour(), dateTime.minute()); // Format time
+    display.write(timeString);
+  }
+
+  // DATE mode
+  if (mode == DATE) {
+    char dateString[7]; // Buffer to store the date string (6 chars + null terminator)
+    char months[12][4] = { "JAN", "FEV", "MAR", "AVR", "MAI", "JUN", "JUL", "AOU", "SEP", "OCT", "NOV", "DEC" };
+    sprintf(dateString, "%02d %s", dateTime.day(), months[dateTime.month() - 1]); // Format date
+    display.write(dateString);
+  }
+
+  // TEMP mode
+  if (mode == TEMP) {
+    if (receivedWeather) {
+      char tempString[7]; // Buffer to store the temperature string (6 chars + null terminator)
+
+      // Format temperature
+      // Determine how much space is available
+      int tempLen = snprintf(NULL, 0, "%d", temperature); // Get the length of the temperature as a string, including "-" sign
+      int spaces = 6-3-tempLen; // Spaces left between "T:" and temperature + "C"
+      if (spaces<0) {
+        spaces = 0;
+      }
+      strcpy(tempString, "T:");
+      for (int i=0;i<spaces;i++) {
+        strcat(tempString, " ");
+      }
+      sprintf(tempString, "%s%dC", tempString, temperature);
+      display.write(tempString);
+    } else {
+      display.write("NOWIFI");
+    }
   }
 
   // SLEEP mode
@@ -370,7 +433,7 @@ void loop() {
     }
     
     display.write(input.c_str()); // Display the message
-    mode = SERIAL; // Set mode to SERIAL
+    mode = SERIAL_MSG; // Set mode to SERIAL_MSG
   }
 }
 
@@ -394,4 +457,30 @@ void rotaryEncoderISR() {
   Serial.println(rotaryCtr);
 
   lastISRTime = now;
+}
+
+String* splitStr(String str, char delimiter) {
+  // Count how many substrings there will be
+  int len = 1; // Always at least one substring
+  for (int i = 0; i < str.length(); i++) {
+    if (str[i] == delimiter) {
+      len++;
+    }
+  }
+
+  String* output = new String[len];
+
+  int startIndex = 0;
+  int substringCount = 0;
+
+  for (int i = 0; i < str.length(); i++) {
+    if (str[i] == delimiter) {
+      output[substringCount] = str.substring(startIndex, i);
+      startIndex = i + 1;
+      substringCount++;
+    }
+  }
+  output[substringCount] = str.substring(startIndex);
+
+  return output;
 }
