@@ -14,7 +14,7 @@ const char HTML[] PROGMEM = R"(
             body {
                 font-family: Verdana, Geneva, Tahoma, sans-serif;
                 background-color: #f7fafc;
-                padding: 2rem 1rem;
+                padding: 1rem 1rem;
                 cursor: default;
             }
             .container {
@@ -172,12 +172,12 @@ const char HTML[] PROGMEM = R"(
             // Send button
             document.getElementById('send').addEventListener('click', function(){
                 const input = document.getElementById('msg');
-                const msg = input.value;
+                const msg = input.value.toUpperCase();
                 if (!msg) {
                     alert("Message cannot be empty.");
                     return;
                 }
-                if (!/^[a-zA-Z0-9:$\- ]*$/.test(msg)) {
+                if (!/^[A-Z0-9:$\- ]*$/.test(msg)) {
                     alert("Message can only contain chars A-Z, 0-9, $, -, :, and space.");
                     return;
                 }
