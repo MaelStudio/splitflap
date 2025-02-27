@@ -9,6 +9,10 @@ COMMANDS AND RESPONSES:
 > DISPLAY MSG
 
 < SEND MSG
+
+> MODE ID
+
+< MODE ID
 */
 
 #include <WiFi.h>
@@ -109,6 +113,15 @@ void loop() {
     }
     return;
   }
+
+  // > MODE ID
+  if (command == "MODE") {
+    mode = arg.toInt();
+    if (events.count()) { // check if there are clients connected to the web server
+      events.send(String(mode).c_str(), "mode"); // Send mode to clients
+    }
+    return;
+  }
 }
 
 // Send webpage
@@ -129,9 +142,10 @@ void handleMode(AsyncWebServerRequest *request) {
     request->send(400, "text/plain", "Bad Request");
     return;
   }
-  mode = request->getParam("id")->value().toInt();
+  // Send mode over UART to Arduino
+  int id = request->getParam("id")->value().toInt();
+  Serial1.printf("MODE %d\n", id);
   
-  //Serial.print("Mode set to "); Serial.println(mode);
   request->send(200, "text/plain", "Mode changed");
 }
 

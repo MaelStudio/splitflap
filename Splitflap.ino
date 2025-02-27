@@ -282,7 +282,12 @@ int humidity;
 char lastDisplayedMsg[DISPLAY_SIZE+1];
 
 // MODES
-int mode = 0;
+#define START_MODE 0
+#define END_MODE 3
+
+int mode = START_MODE;
+int lastMode = START_MODE;
+
 #define MESSAGE -1
 #define TIME 0
 #define DATE 1
@@ -341,9 +346,10 @@ void loop() {
   if (Serial1.available() > 0) {
     String msg = Serial1.readStringUntil('\n');
     msg.trim();
-    Serial.println(msg);
 
-    String* args = splitStr(msg, ' '); // command, arg0, arg1, ...
+    Serial.println(msg); // debug
+
+    String* args = splitStr(msg, ' '); // command, arg1, arg2, ...
     String command = args[0]; // Command name
 
     // CONNECT response
@@ -352,16 +358,22 @@ void loop() {
       wifiConnected = true;
     }
     // WEATHER response
-    if (command == "WEATHER") {
+    else if (command == "WEATHER") {
       receivedWeather = true;
       temperature = args[1].toInt();
       humidity = args[2].toInt();
     }
-
-    if (command == "SEND") {
+    // SEND command
+    else if (command == "SEND") {
       display.write(msg.substring(command.length()+1).c_str()); // Display the message
       mode = MESSAGE; // Set mode to MESSAGE
     }
+
+    // MODE command
+    else if (command == "MODE") {
+      mode = args[1].toInt();
+    }
+    
     delete[] args;
   }
 
@@ -370,6 +382,12 @@ void loop() {
   if (strcmp(buf, lastDisplayedMsg)) {
     Serial1.print("DISPLAY "); Serial1.println(buf);
     strcpy(lastDisplayedMsg, buf);
+  }
+
+  // Send current mode
+  if (mode != lastMode) {
+    Serial1.print("MODE "); Serial1.println(mode);
+    lastMode = mode;
   }
   
   // Request weather data to ESP32 every 10 minutes
@@ -387,8 +405,8 @@ void loop() {
   if (digitalRead(ROTARY_SW_PIN) == LOW) {
     if (now - lastPressTime > 300) {
       mode++;
-      if (mode > 3) {
-        mode = 0;
+      if (mode > END_MODE) {
+        mode = START_MODE;
       }
       lastPressTime = now;
     }
