@@ -9,6 +9,7 @@ public:
   int motorPins[4];
   bool homing;
   char displayed;
+  bool moving;
 
   // Module constructor
   Module() {
@@ -117,7 +118,6 @@ private:
   int flapStepIdx;
   int displayedIdx;
   int targetIdx;
-  int moving;
   int offset;
   int offsetSteps;
   unsigned long lastStepTime;
@@ -224,12 +224,20 @@ public:
   }
 
   void getDisplayedMessage(char *buffer) {
-    
     for (int i = 0; i < size; i++) {
       buffer[i] = modules[i].displayed;
     }
     
     buffer[size] = '\0'; // Null-terminate the string
+  }
+
+  bool moving() {
+    for (int i = 0; i < size; i++) {
+      if (modules[i].moving) {
+        return true;
+      }
+    }
+    return false;
   }
 
 
@@ -276,6 +284,7 @@ DateTime dateTime;
 
 // WiFi
 bool wifiConnected = false;
+byte ip[4];
 bool receivedWeather = false;
 int temperature;
 int humidity;
@@ -283,16 +292,21 @@ char lastDisplayedMsg[DISPLAY_SIZE+1];
 
 // MODES
 #define START_MODE 0
-#define END_MODE 3
+#define END_MODE 4
 
 int mode = START_MODE;
 int lastMode = START_MODE;
 
 #define MESSAGE -1
-#define TIME 0
-#define DATE 1
-#define TEMP 2
-#define SLEEP 3
+#define IP 0
+#define TIME 1
+#define DATE 2
+#define TEMP 3
+#define SLEEP 4
+
+// IP mode
+int ipByteIdx = 0;
+bool displayingByte = false;
 
 // Auto sleep
 int autoSleepTime[2] = {21, 0}; // 21:00
@@ -354,7 +368,10 @@ void loop() {
 
     // CONNECT response
     if (command == "CONNECT") {
-      String ip = args[1];
+      char ipStr[16];
+      strcpy(ipStr, args[1].c_str());
+      sscanf(ipStr, "%hhu.%hhu.%hhu.%hhu", &ip[0], &ip[1], &ip[2], &ip[3]); // Parse IP address into individual bytes
+
       wifiConnected = true;
     }
     // WEATHER response
@@ -373,7 +390,7 @@ void loop() {
     else if (command == "MODE") {
       mode = args[1].toInt();
     }
-    
+
     delete[] args;
   }
 
@@ -388,6 +405,12 @@ void loop() {
   if (mode != lastMode) {
     Serial1.print("MODE "); Serial1.println(mode);
     lastMode = mode;
+
+    // Setup modes
+    if (mode == IP) {
+      ipByteIdx = 0;
+      displayingByte = false;
+    }
   }
   
   // Request weather data to ESP32 every 10 minutes
@@ -428,6 +451,35 @@ void loop() {
   }
   if (mode == SLEEP && dateTime.hour() == autoWakeTime[0] && dateTime.minute() == autoWakeTime[1]) {
     mode = TIME;
+  }
+
+  // IP mode
+  if (mode == IP) {
+    if (wifiConnected) {
+      static unsigned long ipByteTime = now;
+
+      if (ipByteIdx < 4) {
+        sprintf(buf, "IP %3d", ip[ipByteIdx]); // Format current ip byte
+      } else {
+        sprintf(buf, "IP    ", ip[ipByteIdx]); // Blank so we know it's starting over
+      }
+      display.write(buf);
+
+      // Wait for current byte to appear on display
+      if (!displayingByte && !display.moving()) {
+        displayingByte = true;
+        ipByteTime = now;
+      }
+      if (displayingByte && now - ipByteTime > 2000) { // Pause 2 seconds before moving on to next byte
+        ipByteIdx++;
+        if (ipByteIdx > 4) { // Index 4 is blank so we know it's starting over
+          ipByteIdx = 0;
+        }
+        displayingByte = false;
+      }
+    } else {
+      display.write("NOWIFI");
+    }
   }
 
   // TIME mode

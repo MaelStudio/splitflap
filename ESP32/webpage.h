@@ -135,6 +135,7 @@ const char HTML[] PROGMEM = R"(
                 <div>
                     <h2>Mode</h2>
                     <div class="button-group">
+                        <button>LOCAL IP</button>
                         <button>TIME</button>
                         <button>DATE</button>
                         <button>TEMPERATURE</button>
