@@ -23,6 +23,13 @@ COMMANDS AND RESPONSES:
 #include "secrets.h"
 #include "webpage.h"
 
+// Static IP configuration
+IPAddress staticIP(192, 168, 0, 100); // ESP32 static local IP
+IPAddress gateway(192, 168, 0, 1);    // IP Address of network gateway 
+IPAddress subnet(255, 255, 255, 0);   // Subnet mask
+IPAddress primaryDNS(1, 1, 1, 1);     // Primary DNS
+IPAddress secondaryDNS(8, 8, 8, 8);   // Secondary DNS
+
 // Web server
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -34,6 +41,9 @@ int mode = 0;
 void setup() {
   //Serial.begin(115200);
   Serial1.begin(115200, SERIAL_8N1, D7, D6); // RX, TX
+
+  // Config static IP
+  WiFi.config(staticIP, gateway, subnet, primaryDNS, secondaryDNS);
 
   // Setup web server
   server.on("/", HTTP_GET, handleRoot);
