@@ -173,9 +173,16 @@ const char HTML[] PROGMEM = R"(
             document.getElementById('send').addEventListener('click', function(){
                 const input = document.getElementById('msg');
                 const msg = input.value;
-                if (!msg) return;
+                if (!msg) {
+                    alert("Message cannot be empty.");
+                    return;
+                }
+                if (!/^[a-zA-Z0-9:$\- ]*$/.test(msg)) {
+                    alert("Message can only contain chars A-Z, 0-9, $, -, :, and space.");
+                    return;
+                }
+                
                 input.value = '';
-
                 // Send message to the server as a GET request
                 fetch(`/send?msg=${msg}`);
             });
