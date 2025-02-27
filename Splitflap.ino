@@ -223,6 +223,16 @@ public:
     }
   }
 
+  void getDisplayedMessage(char *buffer) {
+    
+    for (int i = 0; i < size; i++) {
+      buffer[i] = modules[i].displayed;
+    }
+    
+    buffer[size] = '\0'; // Null-terminate the string
+  }
+
+
   // Power each motor pin 1 by 1
   void debugPins() {
     for (int i = 0; i < size; i++) {
@@ -252,7 +262,9 @@ private:
 
 
 // Display with 6 modules
-Display display(6);
+#define DISPLAY_SIZE 6
+Display display(DISPLAY_SIZE);
+char buf[DISPLAY_SIZE+1]; // string buffer with extra null terminator char
 
 // RTC
 #define ROTARY_CLK_PIN 2
@@ -267,10 +279,11 @@ bool wifiConnected = false;
 bool receivedWeather = false;
 int temperature;
 int humidity;
+char lastDisplayedMsg[DISPLAY_SIZE+1];
 
-// Modes
+// MODES
 int mode = 0;
-#define SERIAL_MSG -1
+#define MESSAGE -1
 #define TIME 0
 #define DATE 1
 #define TEMP 2
@@ -295,7 +308,7 @@ void setup() {
 
   // Module pins
   // sensor, in1, in2, in3, in4
-  int pins[display.size][5] = {
+  int pins[DISPLAY_SIZE][5] = {
     {42, 44, 46, 48, 50},
     {32, 34, 36, 38, 40},
     {A3, A4, A5, A6, A7},
@@ -304,7 +317,7 @@ void setup() {
     {22, 24, 26, 28, 30}
   };
 
-  int offsets[display.size] = {0, 20, 0, 10, 20, 10};
+  int offsets[DISPLAY_SIZE] = {0, 20, 0, 10, 20, 10};
 
   display.setup(pins, offsets);
 
@@ -318,32 +331,56 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
-
+  
   // Continuously update the display
   display.tick();
+  
+  // == ESP32 COMMUNICATION OVER UART ==
 
-  // Check if received response from ESP32
+  // Check if received response/command from ESP32
   if (Serial1.available() > 0) {
-    String response = Serial1.readStringUntil('\n');
-    response.trim();
-    Serial.println(response);
+    String msg = Serial1.readStringUntil('\n');
+    msg.trim();
+    Serial.println(msg);
 
-    String* responseSplit = splitStr(response, ' ');
-    String command = responseSplit[0]; // Command to which the ESP32 responded
+    String* args = splitStr(msg, ' '); // command, arg0, arg1, ...
+    String command = args[0]; // Command name
 
-    // CONNECT
+    // CONNECT response
     if (command == "CONNECT") {
-      String ip = responseSplit[1];
+      String ip = args[1];
       wifiConnected = true;
     }
-    // WEATHER
+    // WEATHER response
     if (command == "WEATHER") {
       receivedWeather = true;
-      temperature = responseSplit[1].toInt();
-      humidity = responseSplit[2].toInt();
+      temperature = args[1].toInt();
+      humidity = args[2].toInt();
     }
-    delete[] responseSplit;
+
+    if (command == "SEND") {
+      display.write(msg.substring(command.length()+1).c_str()); // Display the message
+      mode = MESSAGE; // Set mode to MESSAGE
+    }
+    delete[] args;
   }
+
+  // Send real time displayed message
+  display.getDisplayedMessage(buf);
+  if (strcmp(buf, lastDisplayedMsg)) {
+    Serial1.print("DISPLAY "); Serial1.println(buf);
+    strcpy(lastDisplayedMsg, buf);
+  }
+  
+  // Request weather data to ESP32 every 10 minutes
+  static unsigned long lastWeatherTime = now - 1000UL*60*10;
+  
+  if (wifiConnected && now - lastWeatherTime > 1000UL*60*10) {
+    Serial1.println("WEATHER");
+    lastWeatherTime = now;
+  }
+
+  // == ROTARY ENCODER AND RTC ==
 
   // Change mode by pressing the rotary encoder switch
   static unsigned long lastPressTime = 0;
@@ -365,13 +402,7 @@ void loop() {
     lastReadTime = now;
   }
 
-  // Request weather data to ESP32 every 10 minutes
-  static unsigned long lastWeatherTime = now - 1000UL*60*10;
-  
-  if (wifiConnected && now - lastWeatherTime > 1000UL*60*10) {
-    Serial1.println("WEATHER");
-    lastWeatherTime = now;
-  }
+  // == DISPLAY MODES ==
 
   // Auto sleep and wake
   if (mode != SLEEP && dateTime.hour() == autoSleepTime[0] && dateTime.minute() == autoSleepTime[1]) {
@@ -383,37 +414,34 @@ void loop() {
 
   // TIME mode
   if (mode == TIME) {
-    char timeString[7]; // Buffer to store the time string (6 chars + null terminator)
-    sprintf(timeString, "%02d:%02d ", dateTime.hour(), dateTime.minute()); // Format time
-    display.write(timeString);
+    sprintf(buf, "%02d:%02d ", dateTime.hour(), dateTime.minute()); // Format time
+    display.write(buf);
   }
 
   // DATE mode
   if (mode == DATE) {
-    char dateString[7]; // Buffer to store the date string (6 chars + null terminator)
     char months[12][4] = { "JAN", "FEV", "MAR", "AVR", "MAI", "JUN", "JUL", "AOU", "SEP", "OCT", "NOV", "DEC" };
-    sprintf(dateString, "%02d %s", dateTime.day(), months[dateTime.month() - 1]); // Format date
-    display.write(dateString);
+    sprintf(buf, "%02d %s", dateTime.day(), months[dateTime.month() - 1]); // Format date
+    display.write(buf);
   }
 
   // TEMP mode
   if (mode == TEMP) {
     if (receivedWeather) {
-      char tempString[7]; // Buffer to store the temperature string (6 chars + null terminator)
 
       // Format temperature
       // Determine how much space is available
       int tempLen = snprintf(NULL, 0, "%d", temperature); // Get the length of the temperature as a string, including "-" sign
-      int spaces = 6-3-tempLen; // Spaces left between "T:" and temperature + "C"
+      int spaces = DISPLAY_SIZE-3-tempLen; // Spaces left between "T:" and temperature + "C"
       if (spaces<0) {
         spaces = 0;
       }
-      strcpy(tempString, "T:");
+      strcpy(buf, "T:");
       for (int i=0;i<spaces;i++) {
-        strcat(tempString, " ");
+        strcat(buf, " ");
       }
-      sprintf(tempString, "%s%dC", tempString, temperature);
-      display.write(tempString);
+      sprintf(buf, "%s%dC", buf, temperature);
+      display.write(buf);
     } else {
       display.write("NOWIFI");
     }
@@ -428,12 +456,12 @@ void loop() {
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
 
-    if (input.length() > display.size) {
-      input = input.substring(0, display.size);
+    if (input.length() > DISPLAY_SIZE) {
+      input = input.substring(0, DISPLAY_SIZE);
     }
     
     display.write(input.c_str()); // Display the message
-    mode = SERIAL_MSG; // Set mode to SERIAL_MSG
+    mode = MESSAGE; // Set mode to MESSAGE
   }
 }
 
