@@ -275,12 +275,14 @@ Display display(DISPLAY_SIZE);
 char buf[DISPLAY_SIZE+1]; // string buffer with extra null terminator char
 
 // RTC
+RTClib rtc;
+DateTime dateTime;
+
+// Rotary encoder
 #define ROTARY_CLK_PIN 2
 #define ROTARY_DATA_PIN A0
 #define ROTARY_SW_PIN A1
-RTClib rtc;
 int rotaryCtr = 0;
-DateTime dateTime;
 
 // WiFi
 bool wifiConnected = false;
