@@ -38,6 +38,8 @@ AsyncEventSource events("/events");
 char displayed[7];
 int mode = 0;
 
+bool wifiOn = false;
+
 void setup() {
   //Serial.begin(115200);
   Serial1.begin(115200, SERIAL_8N1, D7, D6); // RX, TX
@@ -54,6 +56,11 @@ void setup() {
 }
 
 void loop() {
+
+  if (wifiOn && WiFi.status() != WL_CONNECTED) {
+    startWiFi(); // Restart wifi
+  }
+  
   // Check if received command
   if (!Serial1.available()) {
     return;
@@ -72,14 +79,7 @@ void loop() {
 
   // > CONNECT
   if (command == "CONNECT") {
-    WiFi.disconnect();
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    while(WiFi.status() != WL_CONNECTED) {
-      delay(100);
-    }
-
-    // Start web server
-    server.begin();
+    startWiFi();
     
     // < CONNECT IP
     Serial1.printf("CONNECT %s\n", WiFi.localIP().toString().c_str());
@@ -132,6 +132,19 @@ void loop() {
     }
     return;
   }
+}
+
+void startWiFi() {
+  WiFi.disconnect();
+  server.end();
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(100);
+  }
+  wifiOn = true;
+
+  // Start web server
+  server.begin();
 }
 
 // Send webpage
