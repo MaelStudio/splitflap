@@ -1,18 +1,15 @@
 /*
-COMMANDS AND RESPONSES:
+COMMANDS:
 > CONNECT
-< CONNECT IP
+< IP ip
 
-> WEATHER
+> DISPLAY msg
+> MODE id
+
 < WEATHER temp humidity
-
-> DISPLAY MSG
-
-< SEND MSG
-
-> MODE ID
-
-< MODE ID
+< YOUTUBE subs
+< SEND msg
+< MODE id
 */
 
 #include <WiFi.h>
@@ -41,8 +38,8 @@ int mode = 0;
 bool wifiOn = false;
 
 void setup() {
-  //Serial.begin(115200);
   Serial1.begin(115200, SERIAL_8N1, D7, D6); // RX, TX
+  //Serial.begin(115200);
 
   // Config static IP
   WiFi.config(staticIP, gateway, subnet, primaryDNS, secondaryDNS);
@@ -56,16 +53,46 @@ void setup() {
 }
 
 void loop() {
+  unsigned long now = millis();
 
   if (wifiOn && WiFi.status() != WL_CONNECTED) {
     startWiFi(); // Restart wifi
+  }
+
+  // < WEATHER temp humidity
+  static unsigned long lastWeatherReqTime = now - 1000UL*60*10;
+  if (wifiOn && now - lastWeatherReqTime >= 1000UL*60*10) { // Request weather data every 10 minutes
+    // GET request to url
+    HTTPClient http;
+    http.begin(WEATHER_API_URL);
+    int res = http.GET();
+
+    if (res == HTTP_CODE_OK) {
+      String payload = http.getString();
+      JsonDocument json;
+      deserializeJson(json, payload);
+
+      // Extract values from JSON
+      float temperature = json["current"]["temperature_2m"];
+      int humidity = json["current"]["relative_humidity_2m"];
+      //float max_temp = json["daily"]["temperature_2m_max"][0];
+      //float min_temp = json["daily"]["temperature_2m_min"][0];
+
+      // < WEATHER temp humidity
+      Serial1.printf("WEATHER %d %d\n", (int)round(temperature), (int)round(humidity));
+      lastWeatherReqTime = now;
+    }
+
+    // Free resources
+    http.end();
   }
   
   // Check if received command
   if (!Serial1.available()) {
     return;
   }
-  
+
+  // Get command
   String command = Serial1.readStringUntil('\n');
   String arg;
   command.trim();
@@ -81,41 +108,12 @@ void loop() {
   if (command == "CONNECT") {
     startWiFi();
     
-    // < CONNECT IP
-    Serial1.printf("CONNECT %s\n", WiFi.localIP().toString().c_str());
+    // < IP ip
+    Serial1.printf("IP %s\n", WiFi.localIP().toString().c_str());
     return;
   }
 
-  // > WEATHER
-  if (command == "WEATHER") {
-    HTTPClient http;
-
-    // GET request to url
-    http.begin(WEATHER_API_URL);
-    int res = http.GET();
-    
-    // res will be negative on error
-    if (res == HTTP_CODE_OK) {
-      String payload = http.getString();
-      JsonDocument json;
-      deserializeJson(json, payload);
-
-      // Extract values from JSON
-      float temperature = json["current"]["temperature_2m"];
-      int humidity = json["current"]["relative_humidity_2m"];
-      //float max_temp = json["daily"]["temperature_2m_max"][0];
-      //float min_temp = json["daily"]["temperature_2m_min"][0];
-
-      // < WEATHER temp humidity
-      Serial1.printf("WEATHER %d %d\n", (int)round(temperature), (int)round(humidity));
-    }
-
-    // Free resources
-    http.end();
-    return;
-  }
-
-  // > DISPLAY MSG
+  // > DISPLAY msg
   if (command == "DISPLAY") {
     arg.toCharArray(displayed, 7);
     if (events.count()) { // check if there are clients connected to the web server
@@ -124,7 +122,7 @@ void loop() {
     return;
   }
 
-  // > MODE ID
+  // > MODE id
   if (command == "MODE") {
     mode = arg.toInt();
     if (events.count()) { // check if there are clients connected to the web server

@@ -358,7 +358,7 @@ void loop() {
   
   // == ESP32 COMMUNICATION OVER UART ==
 
-  // Check if received response/command from ESP32
+  // Check if received command from ESP32
   if (Serial1.available() > 0) {
     String msg = Serial1.readStringUntil('\n');
     msg.trim();
@@ -368,27 +368,26 @@ void loop() {
     String* args = splitStr(msg, ' '); // command, arg1, arg2, ...
     String command = args[0]; // Command name
 
-    // CONNECT response
-    if (command == "CONNECT") {
+    // < IP ip
+    if (command == "IP") {
       char ipStr[16];
       strcpy(ipStr, args[1].c_str());
       sscanf(ipStr, "%hhu.%hhu.%hhu.%hhu", &ip[0], &ip[1], &ip[2], &ip[3]); // Parse IP address into individual bytes
 
       wifiConnected = true;
     }
-    // WEATHER response
+    // < WEATHER temp humidity
     else if (command == "WEATHER") {
       receivedWeather = true;
       temperature = args[1].toInt();
       humidity = args[2].toInt();
     }
-    // SEND command
+    // < SEND msg
     else if (command == "SEND") {
       display.write(msg.substring(command.length()+1).c_str()); // Display the message
       mode = MESSAGE; // Set mode to MESSAGE
     }
-
-    // MODE command
+    // < MODE id
     else if (command == "MODE") {
       mode = args[1].toInt();
     }
@@ -399,12 +398,14 @@ void loop() {
   // Send real time displayed message
   display.getDisplayedMessage(buf);
   if (strcmp(buf, lastDisplayedMsg)) {
+    // > DISPLAY msg
     Serial1.print("DISPLAY "); Serial1.println(buf);
     strcpy(lastDisplayedMsg, buf);
   }
 
   // Send current mode
   if (mode != lastMode) {
+    // MODE id
     Serial1.print("MODE "); Serial1.println(mode);
     lastMode = mode;
 
@@ -413,14 +414,6 @@ void loop() {
       ipByteIdx = 0;
       displayingByte = false;
     }
-  }
-  
-  // Request weather data to ESP32 every 10 minutes
-  static unsigned long lastWeatherTime = now - 1000UL*60*10;
-  
-  if (wifiConnected && now - lastWeatherTime > 1000UL*60*10) {
-    Serial1.println("WEATHER");
-    lastWeatherTime = now;
   }
 
   // == ROTARY ENCODER AND RTC ==
