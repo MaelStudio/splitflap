@@ -288,23 +288,26 @@ int rotaryCtr = 0;
 bool wifiConnected = false;
 byte ip[4];
 bool receivedWeather = false;
+bool receivedYtSubs = false;
 int temperature;
 int humidity;
+int ytSubs;
 char lastDisplayedMsg[DISPLAY_SIZE+1];
 
 // MODES
-#define START_MODE 0
-#define END_MODE 4
-
-int mode = START_MODE;
-int lastMode = START_MODE;
-
 #define MESSAGE -1
 #define IP 0
 #define TIME 1
 #define DATE 2
 #define TEMP 3
-#define SLEEP 4
+#define YOUTUBE 4
+#define SLEEP 5
+
+#define START_MODE 0
+#define END_MODE 5
+
+int mode = START_MODE;
+int lastMode = START_MODE;
 
 // IP mode
 int ipByteIdx = 0;
@@ -342,6 +345,7 @@ void setup() {
 
   display.setup(pins, offsets);
 
+  Serial.println();
   Serial.println("Calibrating modules...");
   display.calibrate();
   Serial.println("Done!");
@@ -376,12 +380,6 @@ void loop() {
 
       wifiConnected = true;
     }
-    // < WEATHER temp humidity
-    else if (command == "WEATHER") {
-      receivedWeather = true;
-      temperature = args[1].toInt();
-      humidity = args[2].toInt();
-    }
     // < SEND msg
     else if (command == "SEND") {
       display.write(msg.substring(command.length()+1).c_str()); // Display the message
@@ -390,6 +388,17 @@ void loop() {
     // < MODE id
     else if (command == "MODE") {
       mode = args[1].toInt();
+    }
+    // < WEATHER temp humidity
+    else if (command == "WEATHER") {
+      receivedWeather = true;
+      temperature = args[1].toInt();
+      humidity = args[2].toInt();
+    }
+    // < YOUTUBE subs
+    else if (command == "YOUTUBE") {
+      receivedYtSubs = true;
+      ytSubs = args[1].toInt();
     }
 
     delete[] args;
@@ -508,7 +517,17 @@ void loop() {
       sprintf(buf, "%s%dC", buf, temperature);
       display.write(buf);
     } else {
-      display.write("NOWIFI");
+      display.write("NODATA");
+    }
+  }
+
+  // YOUTUBE mode
+  if (mode == YOUTUBE) {
+    if (receivedYtSubs) {
+      sprintf(buf, "YT %d", ytSubs);
+      display.write(buf);
+    } else {
+      display.write("NODATA");
     }
   }
 

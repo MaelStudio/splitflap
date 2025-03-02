@@ -13,10 +13,10 @@ COMMANDS:
 */
 
 #include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
 #include "secrets.h"
 #include "webpage.h"
 
@@ -26,6 +26,7 @@ IPAddress gateway(192, 168, 0, 1);    // IP Address of network gateway
 IPAddress subnet(255, 255, 255, 0);   // Subnet mask
 IPAddress primaryDNS(1, 1, 1, 1);     // Primary DNS
 IPAddress secondaryDNS(8, 8, 8, 8);   // Secondary DNS
+bool wifiOn = false;
 
 // Web server
 AsyncWebServer server(80);
@@ -35,7 +36,8 @@ AsyncEventSource events("/events");
 char displayed[7];
 int mode = 0;
 
-bool wifiOn = false;
+// Requests
+#define REQUEST_INTERVAL (1000UL * 60 * 10) // 10 minutes
 
 void setup() {
   Serial1.begin(115200, SERIAL_8N1, D7, D6); // RX, TX
@@ -55,13 +57,14 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
+  // Reconnect if lost connection
   if (wifiOn && WiFi.status() != WL_CONNECTED) {
     startWiFi(); // Restart wifi
   }
 
   // < WEATHER temp humidity
-  static unsigned long lastWeatherReqTime = now - 1000UL*60*10;
-  if (wifiOn && now - lastWeatherReqTime >= 1000UL*60*10) { // Request weather data every 10 minutes
+  static unsigned long lastWeatherReqTime = now - REQUEST_INTERVAL;
+  if (wifiOn && now - lastWeatherReqTime >= REQUEST_INTERVAL) {
     // GET request to url
     HTTPClient http;
     http.begin(WEATHER_API_URL);
@@ -82,9 +85,26 @@ void loop() {
       Serial1.printf("WEATHER %d %d\n", (int)round(temperature), (int)round(humidity));
       lastWeatherReqTime = now;
     }
+  }
 
-    // Free resources
-    http.end();
+  // < YOUTUBE subs
+  static unsigned long lastYoutubeReqTime = now - REQUEST_INTERVAL;
+  if (wifiOn && now - lastYoutubeReqTime >= REQUEST_INTERVAL) {
+    // GET request to url
+    HTTPClient http;
+    http.begin(YOUTUBE_API_URL);
+    int res = http.GET();
+
+    if (res == HTTP_CODE_OK) {
+      String payload = http.getString();
+      JsonDocument json;
+      deserializeJson(json, payload);
+      int subscribers = json["items"][0]["statistics"]["subscriberCount"].as<int>();
+
+      // < YOUTUBE subs
+      Serial1.printf("YOUTUBE %d\n", subscribers);
+      lastYoutubeReqTime = now;
+    }
   }
   
   // Check if received command

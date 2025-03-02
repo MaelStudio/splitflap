@@ -139,6 +139,7 @@ const char HTML[] PROGMEM = R"(
                         <button>TIME</button>
                         <button>DATE</button>
                         <button>TEMPERATURE</button>
+                        <button>YOUTUBE SUBS</button>
                         <button>SLEEP</button>
                     </div>
                 </div>
