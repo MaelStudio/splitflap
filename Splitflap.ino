@@ -400,6 +400,13 @@ void loop() {
       receivedYtSubs = true;
       ytSubs = args[1].toInt();
     }
+    // < ESP_RESET
+    else if (command == "ESP_RESET") {
+      wifiConnected = false;
+
+      // Reconnect to WiFi
+      Serial1.println("CONNECT");
+    }
 
     delete[] args;
   }

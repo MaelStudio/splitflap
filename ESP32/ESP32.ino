@@ -10,6 +10,7 @@ COMMANDS:
 < YOUTUBE subs
 < SEND msg
 < MODE id
+< ESP_RESET
 */
 
 #include <WiFi.h>
@@ -17,10 +18,11 @@ COMMANDS:
 #include <AsyncTCP.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+
 #include "secrets.h"
 #include "webpage.h"
 
-// Static IP configuration
+// WiFi
 IPAddress staticIP(192, 168, 0, 100); // ESP32 static local IP
 IPAddress gateway(192, 168, 0, 1);    // IP Address of network gateway 
 IPAddress subnet(255, 255, 255, 0);   // Subnet mask
@@ -52,15 +54,15 @@ void setup() {
   server.on("/send", HTTP_GET, handleSend);
   server.addHandler(&events); // SSE for real-time webpage updates
   events.onConnect(handleEventsConnection); // When client connects to event handler
+
+  Serial1.println(""); // Make sure commands start on a new line
+
+  // < ESP_RESET
+  Serial1.println("ESP_RESET");
 }
 
 void loop() {
   unsigned long now = millis();
-
-  // Reconnect if lost connection
-  if (wifiOn && WiFi.status() != WL_CONNECTED) {
-    startWiFi(); // Restart wifi
-  }
 
   // < WEATHER temp humidity
   static unsigned long lastWeatherReqTime = now - REQUEST_INTERVAL;
@@ -85,6 +87,9 @@ void loop() {
       Serial1.printf("WEATHER %d %d\n", (int)round(temperature), (int)round(humidity));
       lastWeatherReqTime = now;
     }
+
+    // Free resources
+    http.end();
   }
 
   // < YOUTUBE subs
@@ -105,6 +110,9 @@ void loop() {
       Serial1.printf("YOUTUBE %d\n", subscribers);
       lastYoutubeReqTime = now;
     }
+
+    // Free resources
+    http.end();
   }
   
   // Check if received command
@@ -126,7 +134,14 @@ void loop() {
 
   // > CONNECT
   if (command == "CONNECT") {
-    startWiFi();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while(WiFi.status() != WL_CONNECTED) {
+      delay(100);
+    }
+    wifiOn = true;
+
+    // Start web server
+    server.begin();
     
     // < IP ip
     Serial1.printf("IP %s\n", WiFi.localIP().toString().c_str());
@@ -152,19 +167,6 @@ void loop() {
   }
 }
 
-void startWiFi() {
-  WiFi.disconnect();
-  server.end();
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(100);
-  }
-  wifiOn = true;
-
-  // Start web server
-  server.begin();
-}
-
 // Send webpage
 void handleRoot(AsyncWebServerRequest *request) {
   request->send(200, "text/html", HTML);
@@ -184,6 +186,7 @@ void handleMode(AsyncWebServerRequest *request) {
     return;
   }
   // Send mode over UART to Arduino
+  // < MODE id
   int id = request->getParam("id")->value().toInt();
   Serial1.printf("MODE %d\n", id);
   
@@ -197,6 +200,7 @@ void handleSend(AsyncWebServerRequest *request) {
     return;
   }
   // Send message over UART to Arduino
+  // < SEND msg
   String message = request->getParam("msg")->value();
   Serial1.printf("SEND %s\n", message.c_str());
   
