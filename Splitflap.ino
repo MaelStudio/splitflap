@@ -341,7 +341,7 @@ void setup() {
     {22, 24, 26, 28, 30}
   };
 
-  int offsets[DISPLAY_SIZE] = {0, 20, 0, 10, 20, 10};
+  int offsets[DISPLAY_SIZE] = {0, 20, 0, 10, 25, 10};
 
   display.setup(pins, offsets);
 
@@ -403,6 +403,11 @@ void loop() {
     // < ESP_RESET
     else if (command == "ESP_RESET") {
       wifiConnected = false;
+
+      // Send current displayed message and mode
+      display.getDisplayedMessage(buf);
+      Serial1.print("DISPLAY "); Serial1.println(buf);
+      Serial1.print("MODE "); Serial1.println(mode);
 
       // Reconnect to WiFi
       Serial1.println("CONNECT");
