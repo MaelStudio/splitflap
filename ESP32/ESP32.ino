@@ -64,6 +64,10 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
+  if (wifiOn && WiFi.status() != WL_CONNECTED) {
+    esp_restart();
+  }
+
   // < WEATHER temp humidity
   static unsigned long lastWeatherReqTime = now - REQUEST_INTERVAL;
   if (wifiOn && now - lastWeatherReqTime >= REQUEST_INTERVAL) {
