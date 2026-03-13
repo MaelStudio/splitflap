@@ -1,0 +1,181 @@
+#include <Arduino.h>
+
+class Module {
+public:
+
+  // Public vars
+  int motorPins[4];
+  bool homing;
+  char displayed;
+  bool moving;
+
+  // Module constructor
+  Module() {
+
+    // CONSTANTS
+    flapsCount = 40; // Flaps in module
+    stepsPerRev = 2048; // Steps per motor full revolution
+    stepsPerFlap = stepsPerRev / flapsCount; // Steps required to rotate one character forward
+    stepInterval = 1700; // Time interval between each motor step in microseconds
+
+    // VARS
+    stepSequenceIdx = 0;
+    flapStepIdx = 0;
+    lastStepTime = 0;
+    displayedIdx = 0;
+    moving = false;
+    offsetSteps = 0;
+  }
+
+  void setup(int hallPin, int in1, int in2, int in3, int in4, int off) {
+
+    offset = off;
+
+    // Rearrange stepper pins in order IN1-IN3-IN2-IN4
+    motorPins[0] = in1;
+    motorPins[1] = in3;
+    motorPins[2] = in2;
+    motorPins[3] = in4;
+
+    // Set all stepper pins as outputs
+    for (int i = 0; i < 4; i++) pinMode(motorPins[i], OUTPUT);
+
+    sensorPin = hallPin;
+    pinMode(sensorPin, INPUT_PULLUP);  // Set hall effect sensor pin as an input with pullup resistor
+  }
+
+  void tick() {
+
+    if (homing) {
+      // If module is already on magnet before homing, rotate until not on magnet
+      if (preHoming) {
+        if (step() && !isOnMagnet()) {
+          preHoming = false;
+        }
+        return;
+      }
+      // Offset
+      if (offsetSteps) {
+        if (step()) {
+          offsetSteps--;
+          if (!offsetSteps) {
+            setHome(); // stop homing sequence
+            turnOffInputs();
+          }
+        }
+        return;
+      }
+      // Try to step and check if home position is reached
+      if (step() && isOnMagnet()) {
+        if (offset) {
+          offsetSteps = offset;
+        } else {
+          setHome(); // stop homing sequence
+          turnOffInputs();
+        }
+      }
+      return; // Finish homing before rotating to target character
+    }
+
+    // Step until target character has been reached
+    if (moving && step() && displayedIdx == targetIdx) {
+      moving = false;
+      turnOffInputs();
+    }
+    
+  }
+  
+  void home() {
+    preHoming = true;
+    homing = true;
+  }
+
+  void display(char c) {
+
+    c = toupper(c);
+    if (targetIdx == findCharIdx(c)) return;
+    targetIdx = findCharIdx(c);
+
+    // Loop back to home if target character is behind currently displayed
+    if (targetIdx < displayedIdx) {
+      home();
+    }
+    if (targetIdx != displayedIdx) {
+      moving = true;
+    }
+    
+  }
+
+private:
+  int sensorPin;
+  int flapsCount;
+  int stepsPerRev;
+  int stepsPerFlap;
+  int stepInterval;
+  int stepSequenceIdx;
+  int flapStepIdx;
+  int displayedIdx;
+  int targetIdx;
+  int offset;
+  int offsetSteps;
+  unsigned long lastStepTime;
+  bool preHoming;
+  bool stepSequence[4][4] = {
+    { 1, 0, 0, 1 },
+    { 0, 1, 0, 1 },
+    { 0, 1, 1, 0 },
+    { 1, 0, 1, 0 }
+  };
+  char chars[40] = { ' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', ':', '$' };
+
+  void setHome() {
+    displayedIdx = 0;
+    displayed = chars[0];
+    flapStepIdx = 0;
+    homing = false;
+  }
+
+  bool step() {
+    unsigned long now = micros();
+    if (now - lastStepTime < stepInterval) return false;
+  
+    // Write correct sequence to step the motor
+    for (int in = 0; in < 4; in++) digitalWrite(motorPins[in], stepSequence[stepSequenceIdx][in]);
+
+    // Next in sequence
+    stepSequenceIdx++;
+    if (stepSequenceIdx == 4) {
+      stepSequenceIdx = 0;
+    }
+
+    // flap step
+    flapStepIdx++;
+    if (flapStepIdx == stepsPerFlap) {
+      flapStepIdx = 0;
+      displayedIdx++;
+      if (displayedIdx == flapsCount) {
+        displayedIdx = 0;
+      }
+      displayed = chars[displayedIdx];
+    }
+    
+    lastStepTime = now;
+    return true;
+  }
+
+  void turnOffInputs() {
+    for (int in = 0; in < 4; in++) {
+      digitalWrite(motorPins[in], LOW);
+    }
+  }
+
+  bool isOnMagnet() {
+    return !digitalRead(sensorPin);
+  }
+
+  int findCharIdx(char c) {
+    for (int i = 0; i < flapsCount; i++) if (chars[i] == c) return i;
+    return -1;
+  }
+
+};
