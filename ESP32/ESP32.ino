@@ -18,6 +18,7 @@ COMMANDS:
 #include <AsyncTCP.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <ArduinoJson.hpp>
 
 #include "secrets.h"
 #include "webpage.h"
@@ -35,7 +36,7 @@ AsyncWebServer server(80);
 AsyncEventSource events("/events");
 
 // Web page data
-char displayed[7];
+char displayed[7] = "      ";
 int mode = 0;
 
 // Requests

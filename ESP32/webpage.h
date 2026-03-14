@@ -11,6 +11,11 @@ const char HTML[] PROGMEM = R"(
                 font-size: 24px;
             }
 
+            html, body {
+                height: 100%;
+                overflow: hidden;
+            }
+
             body {
                 font-family: Verdana, Geneva, Tahoma, sans-serif;
                 background-color: #f7fafc;
@@ -60,17 +65,64 @@ const char HTML[] PROGMEM = R"(
                 width: fit-content;
                 margin: 0 auto;
             }
+            .display {
+                text-align: center;
+                display: flex;
+                gap: 0.5rem;
+                background-color: black;
+                padding: 0.8rem;
+                border-radius: 0.5rem;
+                justify-content: center;
+                width: fit-content;
+                margin: 0 auto;
+                perspective: 700px;
+            }
             .flap {
                 font-size: 3.5rem;
                 width: 3rem;
                 height: 4.5rem;
-                background-color: black;
-                color: white;
+                background: linear-gradient(180deg, #1f1f1f 0%, #111111 45%, #070707 100%);
+                color: #f8fafc;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-family: Arial, Helvetica, sans-serif;
                 border: 1px solid #95989bcc;
+                box-shadow: inset 0 -0.1rem 0.4rem rgba(0,0,0,0.2);
+                position: relative;
+                overflow: hidden;
+            }
+            .flap::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 50%;
+                height: 3px;
+                transform: translateY(-50%);
+                background: #111111;
+                z-index: 5;
+                pointer-events: none;
+            }
+            .char {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transform-style: preserve-3d;
+                backface-visibility: hidden;
+                font-size: 3.5rem;
+                width: 3rem;
+                height: 4.5rem;
+                text-align: center;
+                line-height: 1;
+            }
+            .char.flip {
+                animation: flip 0.22s cubic-bezier(0.4,0,0.2,1) both;
+            }
+            @keyframes flip {
+                0% { transform: rotateX(-60deg); }
+                50% { transform: rotateX(90deg); }
+                100% { transform: rotateX(0deg); }
             }
             .button-group {
                 display: grid;
@@ -117,6 +169,20 @@ const char HTML[] PROGMEM = R"(
             .input-group button:hover {
                 background-color: #059669;
             }
+
+            * {
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            input {
+                user-select: text;
+                -webkit-user-select: text;
+            }
+
+            body {
+                touch-action: manipulation;
+            }
         </style>
     </head>
     <body onload>
@@ -125,12 +191,12 @@ const char HTML[] PROGMEM = R"(
                 <h1>Maël's Splitflap<br>Display</h1>
                 <div class="time-date" id="timeDate"></div>
                 <div class="display">
-                    <div class="flap"> </div>
-                    <div class="flap"> </div>
-                    <div class="flap"> </div>
-                    <div class="flap"> </div>
-                    <div class="flap"> </div>
-                    <div class="flap"> </div>
+                    <div class="flap"><span class="char"> </span></div>
+                    <div class="flap"><span class="char"> </span></div>
+                    <div class="flap"><span class="char"> </span></div>
+                    <div class="flap"><span class="char"> </span></div>
+                    <div class="flap"><span class="char"> </span></div>
+                    <div class="flap"><span class="char"> </span></div>
                 </div>
                 <div>
                     <h2>Mode</h2>
@@ -201,9 +267,18 @@ const char HTML[] PROGMEM = R"(
             // Update displayed message
             eventSource.addEventListener('displayedMsg', function(e) {
                 const msg = e.data;
-                const displayFlaps = document.querySelectorAll('.flap');
-                for (let i = 0; i < displayFlaps.length; i++) {
-                    displayFlaps[i].textContent = msg[i] || ' '; // Update the flaps
+                const displayChars = document.querySelectorAll('.flap .char');
+                for (let i = 0; i < displayChars.length; i++) {
+                    const nextChar = msg[i] || ' ';
+                    if (displayChars[i].textContent !== nextChar) {
+                        displayChars[i].textContent = nextChar;
+                        displayChars[i].classList.remove('flip');
+                        displayChars[i].offsetWidth; // force reflow
+                        displayChars[i].classList.add('flip');
+                        displayChars[i].addEventListener('animationend', () => {
+                            displayChars[i].classList.remove('flip');
+                        }, { once: true });
+                    }
                 }
             });
 
